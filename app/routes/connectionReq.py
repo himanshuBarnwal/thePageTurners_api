@@ -77,7 +77,7 @@ def accept_connection(connectionUpd: schema.ConnectionUpdate,db: Session = Depen
 
 
 
-@connection.delete("/connection_req_reject", response_model=schema.Connection)
+@connection.delete("/reject", response_model=schema.Connection)
 def reject_connection(connectionUpd: schema.ConnectionUpdate,db: Session = Depends(get_db),current_user: student.Student = Depends(get_current_user)):
     db_conn = db.query(Connection).get(connectionUpd.sender_id)
     db_conn = db.query(Connection).filter(

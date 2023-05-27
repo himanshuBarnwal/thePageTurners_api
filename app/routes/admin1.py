@@ -13,25 +13,30 @@ import pandas as pd
 
 base_path = "/The_Page_Turners"
 
-
-
 admin = APIRouter(
     tags=["Admin"],prefix='/admin'
 )
 
 @admin.post("/signup", response_class=JSONResponse)
-async def signup(admin: AdminCreateSchema, db: Session = Depends(get_db)):
+async def signup(admin: AdminCreateSchema, db: Session = Depends(get_db), is_auth=Depends(is_admin_authenticated)):
     try:
-        ad = db.query(Admin).filter(
-            Admin.email == admin.email).first()
-        if ad:
-            return{"This email already exists. Please try with other one."}
+        if is_auth['flag']:
+            email = is_auth['payload']['sub']
+            print(email)
+            ad = db.query(Admin).filter(Admin.email == email).first()
+            ad_role = ad.role
+
+            if ad_role!="Head":
+                return{"You are not authenicated to add admin"}
+            else:
+                admin.password = Hash.bcrypt(admin.password)
+                ad = Admin(**admin.__dict__)
+                db.add(ad)
+                db.commit()
+                return {"status_code : 200", "Registration done successfully"}
+            
         else:
-            admin.password = Hash.bcrypt(admin.password)
-            ad = Admin(**admin.__dict__)
-            db.add(ad)
-            db.commit()
-            return {"status_code : 200", "Registration done successfully"}
+            return {"Please login first"}
 
     except:
         return HTTPException(status_code=404, detail="something went wrong.")

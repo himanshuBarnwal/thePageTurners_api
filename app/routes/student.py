@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from config.db import get_db,Base
 from models import Student
 from schemas import student as schema
@@ -72,8 +73,9 @@ async def recommended_friend(db: Session = Depends(get_db), current_user: schema
         department = db_student.department
         course = db_student.course
         
-        db_common = db.query(Student).filter((Student.department==department)|(Student.course==course)).limit(5).all()
+        db_common = db.query(Student).filter((Student.department==department)|(Student.course==course) & (Student.id != s_id)).order_by(func.rand()).limit(5).all()
         # books = db.query(Book).offset(skip).limit(limit).all()
+        
         return db_common
     
     except Exception as e:

@@ -6,6 +6,7 @@ from respository.oauth2 import get_current_user
 from models import BookRequest, Book
 from schemas import bookReq, student
 from datetime import datetime
+from respository.my_token import is_admin_authenticated
 
 borrow = APIRouter(tags=["Book Borrow"], prefix='/book_issue')
 
@@ -32,8 +33,12 @@ async def book_issue_request(request: bookReq.IssueRequest, db: Session = Depend
 
 #request.status = accepted to issue to book and issue.status = rejected to decline the request. 
 @borrow.post("/action",response_class = JSONResponse)
-async def book_issue_action(request:bookReq.IssueUpdate, db: Session = Depends(get_db), current_admin: student.Student = Depends(get_current_user)):
-    
+async def book_issue_action(request:bookReq.IssueUpdate, db: Session = Depends(get_db), is_auth=Depends(is_admin_authenticated)):
+    """
+    status == accepted or 
+    """
+    if not is_auth['flag']:
+        return {"message": "Unauthorized admin access. Please login first."}
     db_book_req = db.query(BookRequest).filter((BookRequest.isbn == request.isbn) & (BookRequest.status=="Pending")).first()
     if not db_book_req:
         raise HTTPException(status_code=404, detail="Book not found in request table")
@@ -42,8 +47,9 @@ async def book_issue_action(request:bookReq.IssueUpdate, db: Session = Depends(g
         db_book_req.reviewed_at = datetime.now()
         db.add(db_book_req)
         db.commit()
-        db.refresh(db_book_req)
         x = db_book_req
+        db.refresh(db_book_req)
+        
         
         if request.status == "accepted":
             db_book = db.query(Book).filter(Book.isbn==request.isbn).first()
@@ -52,5 +58,4 @@ async def book_issue_action(request:bookReq.IssueUpdate, db: Session = Depends(g
             db.commit()
             db.refresh(db_book)
             
-        return x
-
+        return {"message": "Book issued successfully"}

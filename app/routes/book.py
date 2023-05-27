@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from sqlalchemy import update
 from config.db import get_db,Base
 from models import Book, BookRequest
@@ -51,7 +52,7 @@ async def update_book(books:List[schema.BookUpdate],db:Session = Depends(get_db)
 
 # endpoint to delete a book
 @book.delete("/deleteBook")
-async def delete_book(isbns:List[str],db:Session = Depends(get_db)):
+async def delete_book(isbns:List[str],db:Session = Depends(get_db), is_auth=Depends(is_admin_authenticated)):
     try:
         if is_auth:
             for isbn in isbns:
@@ -73,8 +74,9 @@ async def get_all_books(skip: int = 0, limit: int = 100, db: Session = Depends(g
     return books
 
 @book.post("/add_book_csv")
-async def addBook(path:str, db: Session = Depends(get_db)):
-    print("pathfhff",path)
+async def addBook(path:str, db: Session = Depends(get_db), is_auth=Depends(is_admin_authenticated)):
+    if not is_auth['flag']:
+        return {"message": "Unauthorized admin access. Please login first."}
     try:
         df = pd.read_csv(path)
         # lst = []
@@ -110,23 +112,11 @@ async def addBook(path:str, db: Session = Depends(get_db)):
 @book.get('/recommend_book')
 def recommend_books(genre: str, db: Session = Depends(get_db), current_user: student.Student = Depends(oauth2.get_current_user)):
     # Check if the student ID and ISBN are valid
-    '''Genre = [ ]'''
+    '''Genre = [ Fantasy, Thriller, Mystery, Horror, Suspense, Action, Classic etc.]'''
     try:
-        db_book = db.query(Book).filter((Book.genre==genre)&(Book.available==True)).all()
-        s_id = current_user.id
-        lst = []
-        cnt=0
-        print(len(db_book))
-        for book in db_book:
-            check = db.query(BookRequest).filter((BookRequest.isbn==book.isbn)&(BookRequest.student_id==s_id)).first()
-            if not check:
-                lst.append(book)
-                cnt+=1
-                if cnt==5:
-                    break
-        return lst
+        db_book = db.query(Book).filter((Book.genre==genre)&(Book.available==True)).order_by(func.rand()).limit(5).all()
+        
     except:
         raise HTTPException(status_code=404, detail="There is no recommended book of this genre")
-
-
-    return recommended_books
+    
+    return db_book
